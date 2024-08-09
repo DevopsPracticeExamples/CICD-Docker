@@ -1,35 +1,55 @@
-# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
-name: Java CI with Maven
+name: Build
 
 on:
-  push:
+  push: 
     branches: [ "master" ]
-
+    
 jobs:
-  build:
+    build:
+      name: Build a Java application with Maven
+      runs-on: ${{ matrix.os }}
+      strategy:
+        matrix:
+          os: [ubuntu-latest]
+          
+      steps:
+        - name: Checking out the code
+          uses: actions/checkout@v4
+        
+        - name: Setup JDK 17 for x6
+          uses: actions/setup-java@v3
+          with: 
+            distribution: 'corretto'
+            java-version: '17' 
+            cache : maven
 
-    runs-on: ubuntu-latest
+        - name: Unit Tests
+          run: mvn -B test --file pom.xml
 
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: maven
-    - name: Build with Maven
-      run: mvn -B package --file pom.xml
-   # - name: Execute jar File
-    #  run: sudo kill -9 'sudo lsof -t -i:80' & sudo java -jar
+        - name: Build with Maven
+          run: mvn -B package --file pom.xml
 
-    # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
-    #- name: Update dependency graph
-     # uses: advanced-security/maven-dependency-submission-action@571e99aab1055c2e71a1e2309b9691de18d6b7d6
+        - name: Print if Build is a success
+          run: echo "Build succeded"
+
+        - name: Build Docker Image
+          uses: docker/build-push-action@v2
+          with:
+            context: .
+            dockerfile: Dockerfile
+            push: false
+            tags: ${{ secrets.DOCKER_HUB_USERNAME }}/cab-denmark:latest
+
+        - name: Login to Docker Hub
+          uses: docker/login-action@v1
+          with:
+              username: ${{ secrets.DOCKER_HUB_USERNAME }}
+              password: ${{ secrets.DOCKERHUB_ACCESSTOKEN }}
+
+        - name: Push to DockerHub
+          uses: docker/build-push-action@v2
+          with:
+            context: .
+            dockerfile: Dockerfile
+            push: true
+            tags: ${{ secrets.DOCKER_HUB_USERNAME }}/cab-denmark:latest
